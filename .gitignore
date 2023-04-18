@@ -28,3 +28,6 @@ dist/
 nbdist/
 nbactions.xml
 nb-configuration.xml
+
+.swp
+.DS_Store
