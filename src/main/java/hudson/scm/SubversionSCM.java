@@ -531,40 +531,46 @@ public class SubversionSCM extends SCM {
 
         for(ModuleLocation moduleLocation: moduleLocations) {
             CheckoutCondition checkoutCondition = moduleLocation.getCheckoutCondition();
-            // If env is null, tt's not building state, so return all module locations configured by user.
+            // If env is null, it's not building state, so return all module locations configured by user.
             if(env == null) {
                 moduleLocationList.add(moduleLocation);
             }
             else {
-                if(checkoutCondition instanceof AlwaysCheckout) {
-                    LOGGER.info("url:+ " + moduleLocation.getURL() + " AlwaysCheckout.");
+                if(checkoutCondition == null) {
                     moduleLocationList.add(moduleLocation);
                 }
-                else if(checkoutCondition instanceof NeverCheckout) {
-                    LOGGER.info("url:+ " + moduleLocation.getURL() + " NeverCheckout.");
-                }
-                else if(checkoutCondition instanceof StringsMatchCondition) {
-                    LOGGER.info("url:+ " + moduleLocation.getURL() + " StringsMatchCondition.");
-                    StringsMatchCondition stringsMatchCondition = (StringsMatchCondition)checkoutCondition;
-                    LOGGER.info("arg1:" + stringsMatchCondition.getArg1() + " arg2:" + stringsMatchCondition.getArg2() + " isIgnoreCase:" + stringsMatchCondition.isIgnoreCase());
-
-                    boolean isIgnoreCase = stringsMatchCondition.isIgnoreCase();
-                    String expArg1 = env.expand(stringsMatchCondition.getArg1());
-                    String expArg2 = env.expand(stringsMatchCondition.getArg2());
-                    LOGGER.info("expArg1:" + expArg1 + " expArg2:" + expArg2);
-
-                    if(!isIgnoreCase) {
-                        if(expArg1.equals(expArg2)) {
-                            moduleLocationList.add(moduleLocation);
-                        }
+                else {
+                    if(checkoutCondition instanceof AlwaysCheckout) {
+                        LOGGER.info("url:+ " + moduleLocation.getURL() + " AlwaysCheckout.");
+                        moduleLocationList.add(moduleLocation);
                     }
-                    else {
-                        if(expArg1.toLowerCase().equals(expArg2.toLowerCase())) {
-                            moduleLocationList.add(moduleLocation);
-                        }
+                    else if(checkoutCondition instanceof NeverCheckout) {
+                        LOGGER.info("url:+ " + moduleLocation.getURL() + " NeverCheckout.");
                     }
+                    else if(checkoutCondition instanceof StringsMatchCondition) {
+                        LOGGER.info("url:+ " + moduleLocation.getURL() + " StringsMatchCondition.");
+                        StringsMatchCondition stringsMatchCondition = (StringsMatchCondition)checkoutCondition;
+                        LOGGER.info("arg1:" + stringsMatchCondition.getArg1() + " arg2:" + stringsMatchCondition.getArg2() + " isIgnoreCase:" + stringsMatchCondition.isIgnoreCase());
 
+                        boolean isIgnoreCase = stringsMatchCondition.isIgnoreCase();
+                        String expArg1 = env.expand(stringsMatchCondition.getArg1());
+                        String expArg2 = env.expand(stringsMatchCondition.getArg2());
+                        LOGGER.info("expArg1:" + expArg1 + " expArg2:" + expArg2);
+
+                        if(!isIgnoreCase) {
+                            if(expArg1.equals(expArg2)) {
+                                moduleLocationList.add(moduleLocation);
+                            }
+                        }
+                        else {
+                            if(expArg1.toLowerCase().equals(expArg2.toLowerCase())) {
+                                moduleLocationList.add(moduleLocation);
+                            }
+                        }
+
+                    }
                 }
+
             }
 
         }
@@ -965,6 +971,7 @@ public class SubversionSCM extends SCM {
           }
         }
 
+
         List<SvnInfoP> pList = workspace.act(new BuildRevisionMapTask(build, this, listener, externalsForAll, env));
         List<SvnInfo> revList = pList.stream().map(svnInfoP -> svnInfoP.info).collect(toList());
 
@@ -1034,6 +1041,8 @@ public class SubversionSCM extends SCM {
 
         Set<String> unauthenticatedRealms = new LinkedHashSet<>();
         // Changed from getLocations to getActiveLocations, to fit checkoutCondition.
+
+        // Kenny
         for (ModuleLocation location : getActiveLocations(env, build)) {
 
 
@@ -1428,7 +1437,9 @@ public class SubversionSCM extends SCM {
         public BuildRevisionMapTask(Run<?, ?> build, SubversionSCM parent, TaskListener listener, List<External> externals, EnvVars env) {
             this.listener = listener;
             this.externals = externals;
-            this.locations = parent.getLocations(env, build);
+            // Kenny
+//            this.locations = parent.getLocations(env, build);
+            this.locations = parent.getActiveLocations(env, build);
             this.defaultAuthProvider = parent.createAuthenticationProvider(build.getParent(), null, listener);
             this.authProviders = new LinkedHashMap<>();
             for (ModuleLocation loc: locations) {
