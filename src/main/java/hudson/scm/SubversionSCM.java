@@ -520,66 +520,7 @@ public class SubversionSCM extends SCM {
 
 
     /**
-     * Authro: Kenny, check if checkoutConditions met.
-     * @param env
-     * @param build
-     * @return
-     */
-    private ModuleLocation[] getActiveLocations(EnvVars env, Run<?,?> build) {
-        ModuleLocation[] moduleLocations = getLocations( env, build);
-        List<ModuleLocation> moduleLocationList = new ArrayList<>();
-
-        for(ModuleLocation moduleLocation: moduleLocations) {
-            CheckoutCondition checkoutCondition = moduleLocation.getCheckoutCondition();
-            // If env is null, it's not building state, so return all module locations configured by user.
-            if(env == null) {
-                moduleLocationList.add(moduleLocation);
-            }
-            else {
-                if(checkoutCondition == null) {
-                    moduleLocationList.add(moduleLocation);
-                }
-                else {
-                    if(checkoutCondition instanceof AlwaysCheckout) {
-                        LOGGER.info("url:+ " + moduleLocation.getURL() + " AlwaysCheckout.");
-                        moduleLocationList.add(moduleLocation);
-                    }
-                    else if(checkoutCondition instanceof NeverCheckout) {
-                        LOGGER.info("url:+ " + moduleLocation.getURL() + " NeverCheckout.");
-                    }
-                    else if(checkoutCondition instanceof StringsMatchCondition) {
-                        LOGGER.info("url:+ " + moduleLocation.getURL() + " StringsMatchCondition.");
-                        StringsMatchCondition stringsMatchCondition = (StringsMatchCondition)checkoutCondition;
-                        LOGGER.info("arg1:" + stringsMatchCondition.getArg1() + " arg2:" + stringsMatchCondition.getArg2() + " isIgnoreCase:" + stringsMatchCondition.isIgnoreCase());
-
-                        boolean isIgnoreCase = stringsMatchCondition.isIgnoreCase();
-                        String expArg1 = env.expand(stringsMatchCondition.getArg1());
-                        String expArg2 = env.expand(stringsMatchCondition.getArg2());
-                        LOGGER.info("expArg1:" + expArg1 + " expArg2:" + expArg2);
-
-                        if(!isIgnoreCase) {
-                            if(expArg1.equals(expArg2)) {
-                                moduleLocationList.add(moduleLocation);
-                            }
-                        }
-                        else {
-                            if(expArg1.toLowerCase().equals(expArg2.toLowerCase())) {
-                                moduleLocationList.add(moduleLocation);
-                            }
-                        }
-
-                    }
-                }
-
-            }
-
-        }
-
-        return moduleLocationList.toArray(new ModuleLocation[0]);
-//        return moduleLocations;
-    }
-
-    /**
+     * Modified by Kenny, for conditional checkout.
      * List of all configured svn locations, expanded according to all env vars
      * or, if none defined, according to only build parameters values.
      * Both may be defined, in which case the variables are combined.
@@ -609,17 +550,64 @@ public class SubversionSCM extends SCM {
         if(env == null && build == null)
             return locations;
 
-        ModuleLocation[] outLocations = new ModuleLocation[locations.length];
+//        ModuleLocation[] outLocations = new ModuleLocation[locations.length];
+//        ModuleLocation[] outLocations = new ModuleLocation[locations.length];
+        List<ModuleLocation> outLocations = new ArrayList<ModuleLocation>();
         EnvVars env2 = env != null ? new EnvVars(env) : new EnvVars();
         if (build instanceof AbstractBuild) {
             env2.putAll(((AbstractBuild<?,?>) build).getBuildVariables());
         }
         EnvVars.resolve(env2);
-        for (int i = 0; i < outLocations.length; i++) {
-            outLocations[i] = locations[i].getExpandedLocation(env2);
+
+        for (int i = 0; i < locations.length; i++) {
+//        for (int i = 0; i < outLocations.length; i++) {
+            CheckoutCondition condition = locations[i].getCheckoutCondition();
+            boolean canAdd = false;
+            if(build == null) {
+                canAdd = true;
+            }
+            else {
+                if(condition == null) {
+                    canAdd = true;
+                }
+                else {
+                    if(condition instanceof AlwaysCheckout) {
+                        canAdd = true;
+                    }
+                    else if(condition instanceof NeverCheckout) {
+                        canAdd = false;
+                    }
+                    else if(condition instanceof StringsMatchCondition) {
+                        StringsMatchCondition stringsMatchCondition = (StringsMatchCondition)condition;
+                        LOGGER.info("arg1:" + stringsMatchCondition.getArg1() + " arg2:" + stringsMatchCondition.getArg2() + " isIgnoreCase:" + stringsMatchCondition.isIgnoreCase());
+
+                        boolean isIgnoreCase = stringsMatchCondition.isIgnoreCase();
+                        String expArg1 = env2.expand(stringsMatchCondition.getArg1());
+                        String expArg2 = env2.expand(stringsMatchCondition.getArg2());
+                        LOGGER.info("expArg1:" + expArg1 + " expArg2:" + expArg2);
+
+                        if(!isIgnoreCase) {
+                            if(expArg1.equals(expArg2)) {
+                                canAdd = true;
+                            }
+                        }
+                        else {
+                            if(expArg1.toLowerCase().equals(expArg2.toLowerCase())) {
+                                canAdd = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if(canAdd) {
+//                outLocations[i] = locations[i].getExpandedLocation(env2);
+                outLocations.add(locations[i].getExpandedLocation(env2));
+            }
+
         }
 
-        return outLocations;
+        return outLocations.toArray(new ModuleLocation[0]);
     }
 
     /**
@@ -1040,10 +1028,7 @@ public class SubversionSCM extends SCM {
         Map<String, List<External>> externalsMap = new HashMap<>();
 
         Set<String> unauthenticatedRealms = new LinkedHashSet<>();
-        // Changed from getLocations to getActiveLocations, to fit checkoutCondition.
-
-        // Kenny
-        for (ModuleLocation location : getActiveLocations(env, build)) {
+        for (ModuleLocation location : getLocations(env, build)) {
 
 
             CheckOutTask checkOutTask =
@@ -1438,8 +1423,7 @@ public class SubversionSCM extends SCM {
             this.listener = listener;
             this.externals = externals;
             // Kenny
-//            this.locations = parent.getLocations(env, build);
-            this.locations = parent.getActiveLocations(env, build);
+            this.locations = parent.getLocations(env, build);
             this.defaultAuthProvider = parent.createAuthenticationProvider(build.getParent(), null, listener);
             this.authProviders = new LinkedHashMap<>();
             for (ModuleLocation loc: locations) {
