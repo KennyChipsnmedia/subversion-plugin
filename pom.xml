@@ -37,7 +37,7 @@ THE SOFTWARE.
   <version>2.17.1.0</version>
   <packaging>hpi</packaging>
 
-  <name>Jenkins Subversion Plug-in</name>
+  <name>[CNM]Jenkins Subversion Plug-in</name>
   <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
 
   <licenses>
